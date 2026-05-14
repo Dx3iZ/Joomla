@@ -17,11 +17,11 @@ NC='\033[0m'
 
 # Değişkenler
 TARGET="${1}"
-SCRIPT_VERSION="5"
+SCRIPT_VERSION="3.0"
 SCRIPT_NAME="Joomla V3 Scanner"
 PAYLOAD_FILE="b0yner.txt"
 
-GITHUB_RAW_URL="https://raw.githubusercontent.com/KULLANICI_ADI/REPO_ADI/main/joom.sh"
+GITHUB_RAW_URL="https://raw.githubusercontent.com/Dx3iZ/Joomla/refs/heads/main/joom.sh"
 
 check_update() {
     echo -e "  ${BLUE}[*]${NC} Guncelleme kontrol ediliyor..."
