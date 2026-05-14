@@ -18,7 +18,7 @@ NC='\033[0m'
 # Değişkenler
 TARGET="${1}"
 SCRIPT_VERSION="3.1"
-SCRIPT_NAME="Joomla V3 Scanner"
+SCRIPT_NAME="Joomla V${SCRIPT_VERSION} Scanner"
 PAYLOAD_FILE="b0yner.txt"
 GITHUB_RAW_URL="https://raw.githubusercontent.com/Dx3iZ/Joomla/refs/heads/main/joom.sh"
 check_update() {
@@ -52,7 +52,7 @@ VERSION="Bulunamadi"
 # Banner
 echo ""
 echo -e "${RED}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${RED}║        ${GREEN}Joomla V3 Guvenlik Tarama Araci${RED}          ║${NC}"
+echo -e "${RED}║        	${GREEN}${SCRIPT_NAME}${RED}	           ║${NC}"
 echo -e "${RED}║        ${CYAN}Penetrasyon Testi Icin Tasarlanmistir${RED}     ║${NC}"
 echo -e "${RED}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
@@ -76,7 +76,7 @@ echo ""
 # FAZ 1: Joomla Tespiti
 # ──────────────────────────────────────────────────────────────
 echo -e "${RED}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${RED}║         FAZ 1: Joomla Tespiti                   ║${NC}"
+echo -e "${RED}║              FAZ 1: Joomla Tespiti               ║${NC}"
 echo -e "${RED}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -140,7 +140,7 @@ fi
 # ──────────────────────────────────────────────────────────────
 echo ""
 echo -e "${RED}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${RED}║         FAZ 2: Versiyon Tespiti                 ║${NC}"
+echo -e "${RED}║             FAZ 2: Versiyon Tespiti              ║${NC}"
 echo -e "${RED}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -245,7 +245,7 @@ fi
 # ──────────────────────────────────────────────────────────────
 echo ""
 echo -e "${RED}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${RED}║         FAZ 3: Guvenlik Acigi Taramasi          ║${NC}"
+echo -e "${RED}║           FAZ 3: Guvenlik Acigi Taramasi         ║${NC}"
 echo -e "${RED}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -439,7 +439,7 @@ echo -e "    ${GREEN}[✔]${NC} $COMPONENT_COUNT component yuklendi."
 # ──────────────────────────────────────────────────────────────
 echo ""
 echo -e "${RED}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${RED}║         FAZ 4: Dosya Yukleme Denemeleri         ║${NC}"
+echo -e "${RED}║          FAZ 4: Dosya Yukleme Denemeleri         ║${NC}"
 echo -e "${RED}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -719,7 +719,7 @@ echo -e "\r     -> $SCAN_COUNT component tarandi, $UPLOAD_FOUND yeni upload bulu
 # Ozet
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║           YUKLEME SONUCLARI                     ║${NC}"
+echo -e "${GREEN}║                YUKLEME SONUCLARI                 ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -739,7 +739,7 @@ fi
 # ──────────────────────────────────────────────────────────────
 echo ""
 echo -e "${RED}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${RED}║         FAZ 5: RCE / SQLi KONTROL               ║${NC}"
+echo -e "${RED}║             FAZ 5: RCE / SQLi KONTROL            ║${NC}"
 echo -e "${RED}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -769,7 +769,7 @@ fi
 # ──────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║            TARAMA RAPORU OZETI                  ║${NC}"
+echo -e "${GREEN}║               TARAMA RAPORU OZETI                ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${CYAN}Hedef:${NC} $TARGET"
