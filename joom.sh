@@ -17,7 +17,7 @@ NC='\033[0m'
 
 # Değişkenler
 TARGET="${1}"
-SCRIPT_VERSION="3.0"
+SCRIPT_VERSION="3.1"
 SCRIPT_NAME="Joomla V3 Scanner"
 PAYLOAD_FILE="b0yner.txt"
 
